@@ -1,0 +1,23 @@
+[project]
+name = "rag-production-ready-project"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi>=0.141.1",
+    "langchain-anthropic>=1.5.3",
+    "langchain-ollama>=1.1.0",
+    "langgraph>=1.2.10",
+    "langsmith[claude-agent-sdk]>=0.10.15",
+    "pydantic-settings>=2.14.2",
+    "python-dotenv>=1.2.2",
+    "slowapi>=0.1.10",
+    "uvicorn>=0.52.1",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
