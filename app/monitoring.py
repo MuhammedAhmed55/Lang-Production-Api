@@ -63,6 +63,82 @@ def setup_logging():
 
 
 # ================================================================
+# LOGGER SINGLETON
+# ================================================================
+#
+# main.py does:
+#
+#     from app.monitoring import get_logger
+#     logger = get_logger()
+#
+# We keep ONE logger instance for the whole application instead
+# of creating a brand-new logger (and a brand-new StreamHandler)
+# every time get_logger() is called. Without this, calling
+# get_logger() more than once would attach duplicate handlers
+# and print every log line multiple times.
+# ================================================================
+
+_logger_instance = None
+
+
+def get_logger():
+    """
+    Return the application's shared logger instance.
+
+    First call:
+        Creates the logger via setup_logging().
+
+    Every call after that:
+        Returns the SAME logger instance.
+    """
+
+    global _logger_instance
+
+    if _logger_instance is None:
+        _logger_instance = setup_logging()
+
+    return _logger_instance
+
+
+# ================================================================
+# REQUEST TIMER
+# ================================================================
+#
+# main.py uses this like:
+#
+#     with RequestTimer() as timer:
+#         ... do work ...
+#     timer.elapsed_ms
+#
+# This is a context manager: the code that runs "with" it
+# is timed automatically. When the "with" block starts,
+# __enter__ records the start time. When the block ends,
+# __exit__ calculates how many milliseconds passed.
+# ================================================================
+
+class RequestTimer:
+    """Measures how long a block of code takes to run, in milliseconds."""
+
+    def __enter__(self):
+        # Record the start time when entering the "with" block.
+        self._start = time.time()
+
+        # Default value in case __exit__ hasn't run yet.
+        self.elapsed_ms = 0
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Calculate elapsed time in milliseconds when the
+        # "with" block finishes (even if an error happened).
+        self.elapsed_ms = (time.time() - self._start) * 1000
+
+        # Returning False means: don't suppress any exception
+        # that happened inside the "with" block.
+        return False
+
+
+# ================================================================
 # METRICS COLLECTION
 # ================================================================
 
@@ -90,12 +166,20 @@ class MetricsCollector:
     def record_request(
         self,
         latency_ms: float,
-        input_tokens: int,
-        output_tokens: int,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
         error: bool = False,
         cache_hit: bool = False,
     ):
-        """Record information about one AI request."""
+        """
+        Record information about one AI request.
+
+        input_tokens and output_tokens now default to 0 because
+        main.py sometimes records a request (e.g. a blocked or
+        failed request) before it knows any token counts:
+
+            metrics.record_request(latency_ms=0, error=True)
+        """
 
         # Count the request
         self.metrics["requests_total"] += 1
@@ -150,16 +234,40 @@ class MetricsCollector:
             else 0
         )
 
-        # Return useful monitoring information
+        # Return useful monitoring information.
+        #
+        # NOTE: key renamed from "avg_latency_ms" to
+        # "average_latency_ms" so it matches the field name
+        # expected by MetricsResponse in model.py. main.py does:
+        #
+        #     summary = metrics.summary
+        #     return MetricsResponse(**summary)
+        #
+        # which unpacks these dict keys directly as keyword
+        # arguments, so the names must match exactly.
         return {
             "total_requests": self.metrics["requests_total"],
             "total_errors": self.metrics["errors_total"],
             "error_rate": f"{error_rate:.2%}",
-            "avg_latency_ms": round(avg_latency, 2),
+            "average_latency_ms": round(avg_latency, 2),
             "total_input_tokens": self.metrics["tokens_input"],
             "total_output_tokens": self.metrics["tokens_output"],
             "cache_hit_rate": f"{cache_hit_rate:.2%}",
         }
+
+    @property
+    def summary(self) -> dict:
+        """
+        Property version of get_summary().
+
+        main.py accesses this as an attribute, not a method call:
+
+            logger.info("Shutting down...", extra={"extra_data": metrics.summary})
+            summary = metrics.summary
+
+        so we expose it as a @property that just calls get_summary().
+        """
+        return self.get_summary()
 
 
 # ================================================================

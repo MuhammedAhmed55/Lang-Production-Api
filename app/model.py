@@ -69,7 +69,8 @@ class ChatResponse(BaseModel):
         "model_used": "llama3.2",
         "cached": false,
         "processing_time_ms": 450.5,
-        "timestamp": "2026-08-06T10:00:00+00:00"
+        "timestamp": "2026-08-06T10:00:00+00:00",
+        "security_notes": []
     }
     """
 
@@ -96,6 +97,19 @@ class ChatResponse(BaseModel):
     timestamp: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+
+    # NEW: Security notes generated while processing this request.
+    #
+    # Example values you might see in here:
+    #
+    #     "PII detected and masked: ['email']"
+    #
+    # This lets the CLIENT see (not just the server logs) that,
+    # for example, an email address in the input was found and
+    # replaced with [EMAIL] before being sent to the AI model.
+    #
+    # Defaults to an empty list when there's nothing to report.
+    security_notes: list[str] = []
 
 
 # ================================================================
@@ -128,7 +142,19 @@ class HealthResponse(BaseModel):
     version: str = "1.0.0"
 
     # Additional health-check information.
-    check: dict = {}
+    #
+    # NOTE: renamed from "check" to "checks" (plural) because
+    # main.py's /health endpoint builds a dict of component
+    # checks and passes it in as:
+    #
+    #     return HealthResponse(
+    #         status=...,
+    #         environment=...,
+    #         checks=checks,
+    #     )
+    #
+    # The field name here must match that keyword exactly.
+    checks: dict = {}
 
 
 # ================================================================

@@ -62,7 +62,7 @@ class ProductionAgent:
 
         self.primary_llm = ChatOllama(
             model=settings.primary_model,
-            temperatue = 0,
+            temperature = 0,
             timeout = 30,
             max_retries = 0,
         )

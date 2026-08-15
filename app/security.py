@@ -151,6 +151,12 @@ class InputSanitizer:
 
             Result:
                 True, "Blocked: potential prompt injection detected"
+
+        IMPORTANT: True here means "this IS dangerous" (i.e. an
+        injection attempt was found) — it does NOT mean "this is
+        safe". Callers must not treat this return value as an
+        "is_safe" flag. See SecurityPipeline.check_input() below,
+        where this used to be misread and inverted the whole gate.
         """
 
         # Check the user's message against every dangerous pattern.
@@ -443,7 +449,7 @@ class OutputValidator:
 
         return output, warnings
 
-class SecurityPipeLine:
+class SecurityPipeline:
     def __init__(self):
         self.sanitizer = InputSanitizer()
         self.pii_detector = PIIDetector()
@@ -462,9 +468,22 @@ class SecurityPipeLine:
 
         notes = []
 
-        is_safe , reason = self.sanitizer.check(text)
-        if not is_safe:
-            return False, "" , [reason]
+        # FIX: sanitizer.check() returns True when it FOUND an
+        # injection attempt (i.e. the text IS dangerous) — see its
+        # docstring. The old code stored this in a variable named
+        # `is_safe` and did `if not is_safe: block`, which is
+        # backwards: it blocked every message that was actually
+        # SAFE (because check() correctly returned False for them),
+        # and would have let real injection attempts through
+        # (because check() returns True for those, and `not True`
+        # is False, skipping the block).
+        #
+        # Renamed to `is_injection` to match what the value
+        # actually represents, and inverted the condition so we
+        # block only when an injection WAS detected.
+        is_injection, reason = self.sanitizer.check(text)
+        if is_injection:
+            return False, "", [reason]
 
         cleaned = self.sanitizer.clean(text)
 
