@@ -4,7 +4,6 @@
 """
 
 
-from pyexpat.errors import messages
 from typing import Optional, TypedDict
 from typing_extensions import TypedDict , Annotated
 from langgraph.graph import StateGraph , START , END
@@ -85,7 +84,7 @@ class ProductionAgent:
         """
         self.fallback_llm = ChatOllama(
             model=settings.fallback_model,
-            temperatue = 0,
+            temperature = 0,
             timeout = 30,
             max_retries = 0,
         )
@@ -179,12 +178,12 @@ class ProductionAgent:
             "I'm sorry, but I encountered an error while processing your request. Please try again later."
             """
             return {
-                messages: [
+                "messages": [
                     AIMessage(content=(
                         "I'm sorry, but I encountered an error while processing your request. Please try again later."
                     ))
                 ],
-                "model_used":"error_handler",
+                "model_used": "error_handler",
             }
 
         def route_after_process(state: AgentState) -> str:
@@ -322,7 +321,3 @@ if __name__ == "__main__":
     except Exception as e:
         # Catch unexpected errors while testing.
         print(f"\n❌ Something went wrong: {e}")
-
-
-        
-
